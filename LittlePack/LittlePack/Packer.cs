@@ -42,7 +42,7 @@ namespace LittlePack
         public static List<Record> Unpack(byte[] package)
         {
             var result = new List<Record>();
-
+            package = package.UnGzipIt();
             var temp = UnpackIt(package);
 
             if (temp.Count != 2) return result;
@@ -65,7 +65,7 @@ namespace LittlePack
 
         private static List<byte[]> UnpackIt(byte[] package)
         {
-            package = package.UnGzipIt();
+            
             int len = package.Length;
             const int header = 4;
             int position = 0;
@@ -74,13 +74,12 @@ namespace LittlePack
             if (len <= 4) return list;
             while (len > 0)
             {
-
                 byte[] head = package.Skip(position).Take(header).ToArray();
                 int size = GetSize(head);
                 byte[] data = package.Skip(position + header).Take(size).ToArray();
                 list.Add(data);
                 position += (header + size);
-                len -= position;
+                len -= (header + size);
             }
 
             return list;
@@ -88,7 +87,7 @@ namespace LittlePack
 
         public byte[] Pack()
         {  
-            return PackIt(new List<byte[]> { Manifest(), PackIt(Records.Select(m => m.Data).ToList()) });
+            return PackIt(new List<byte[]> { Manifest(), PackIt(Records.Select(m => m.Data).ToList()) }).GzipIt();
         }
 
         private byte[] Manifest()
@@ -113,13 +112,13 @@ namespace LittlePack
                 files.Add(t);
             }
 
-            return files.SelectMany(m => m).ToArray().GzipIt();
+            return files.SelectMany(m => m).ToArray();
               
         }
 
        private static int GetSize(byte[] size)
         { 
-           return BitConverter.ToInt16(size, 0);
+           return BitConverter.ToInt32(size, 0);
         }
 
         private static byte[] GetSizeInBytes(int size)

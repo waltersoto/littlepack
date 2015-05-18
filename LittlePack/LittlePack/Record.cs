@@ -7,5 +7,6 @@ namespace LittlePack
         public string FileName { set; get; }
         public byte[] Data { set; get; }
 
+
     }
 }
