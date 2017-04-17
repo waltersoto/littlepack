@@ -23,109 +23,85 @@ SOFTWARE.
 */
 
 using System;
-using System.Collections.Generic; 
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace LittlePack
-{
-    public class Packer
-    {
-        
-        public Packer():this(new List<Record>()) { }
+namespace LittlePack {
+    public class Packer {
 
-        public Packer(List<Record> records)
-        {
+        private const string MANIFEST_SPLIT = ",";
+
+        public Packer() : this(new List<Record>()) { }
+
+        public Packer(List<Record> records) {
             Records = records;
         }
 
-        public static List<Record> Unpack(byte[] package)
-        {
+        public static List<Record> Unpack(byte[] package) {
             var result = new List<Record>();
             package = package.UnGzipIt();
             var temp = UnpackIt(package);
-
             if (temp.Count != 2) return result;
-
             var manifest = Encoding.ASCII.GetString(temp[0]);
-
-            var files = manifest.Split(',');
-
+            var files = manifest.Split(MANIFEST_SPLIT[0]);
             var data = UnpackIt(temp[1]);
 
             if (files.Length != data.Count) return result;
 
-            result.AddRange(files.Select((t, i) => new Record
-            {
-                FileName = t, Data = data[i]
+            result.AddRange(files.Select((fileName, index) => new Record {
+                FileName = fileName, Data = data[index]
             }));
 
             return result;
-        } 
+        }
 
-        private static List<byte[]> UnpackIt(byte[] package)
-        {
-            
-            int len = package.Length;
-            const int header = 4;
-            int position = 0;
+        private static List<byte[]> UnpackIt(byte[] package) {
+
+            var len = package.Length;
+            const int Header = 4;
+            var position = 0;
             var list = new List<byte[]>();
 
             if (len <= 4) return list;
-            while (len > 0)
-            {
-                byte[] head = package.Skip(position).Take(header).ToArray();
-                int size = GetSize(head);
-                byte[] data = package.Skip(position + header).Take(size).ToArray();
+            while (len > 0) {
+                var head = package.Skip(position).Take(Header).ToArray();
+                var size = GetSize(head);
+                var data = package.Skip(position + Header).Take(size).ToArray();
                 list.Add(data);
-                position += (header + size);
-                len -= (header + size);
+                position += (Header + size);
+                len -= (Header + size);
             }
 
             return list;
         }
 
-        public byte[] Pack()
-        {  
+        public byte[] Pack() {
             return PackIt(new List<byte[]> { Manifest(), PackIt(Records.Select(m => m.Data).ToList()) }).GzipIt();
         }
 
-        private byte[] Manifest()
-        {
+        private byte[] Manifest() {
             if (Records.Count < 1) return null;
-
-            string man = string.Join(",", Records.Select(m => m.FileName.Replace(",", "")));
-
+            var man = string.Join(MANIFEST_SPLIT, Records.Select(m => m.FileName.Replace(MANIFEST_SPLIT, "")));
             return Encoding.ASCII.GetBytes(man);
         }
-
-
-
-        private static byte[] PackIt(IEnumerable<byte[]> records)
-        { 
+        
+        private static byte[] PackIt(IEnumerable<byte[]> records) {
             var files = new List<byte[]>();
 
-            foreach (var t in records)
-            {
-                byte[] size = GetSizeInBytes(t.Length); 
+            foreach (var t in records) {
+                var size = GetSizeInBytes(t.Length);
                 files.Add(size);
                 files.Add(t);
             }
 
             return files.SelectMany(m => m).ToArray();
-              
+
         }
 
-       private static int GetSize(byte[] size)
-        { 
-           return BitConverter.ToInt32(size, 0);
-        }
-
-        private static byte[] GetSizeInBytes(int size)
-        {
-
-            return BitConverter.GetBytes(size);
-        }
+        private static int GetSize(byte[] size) => BitConverter.ToInt32(size, 0);
+        
+        private static byte[] GetSizeInBytes(int size) => BitConverter.GetBytes(size);
 
         public List<Record> Records { set; get; }
 
